@@ -536,4 +536,4 @@ function blendImages(ctx, grayscaleImageData, blurredImageData) {
     }
 
     return blendedImageData;
-  }
+	  }

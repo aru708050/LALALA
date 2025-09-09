@@ -1,31 +1,34 @@
 module.exports = {
   config: {
-    name: "linkfb",
-    aliases: ["link"],
-    version: "1.0",
-    author: "Xemon",
+    name: "fblink",
+    aliases: ["facebooklink"],
+    version: "1.1",
+    author: "Redwan",
     countDown: 5,
     role: 0,
-    shortDescription: "get facebook link",
-    longDescription: "",
-    category: "LINK",
-    guide: {
-      vi: "{pn} ",
-      en: "{pn} "
-    }
+    shortDescription: "Share Facebook profile link",
+    longDescription: "Share the Facebook profile link of a replied user or mentioned user.",
+    category: "utility",
+    guide: "{pn} [Reply to a message or mention someone]"
   },
-  onStart: async function({ api, event, args }) {
-    const { messageReply, senderID, threadID, messageID, type, mentions } = event;
-    let uid;
-    if (type == "message_reply") {
-      uid = messageReply.senderID;
-    } else if (args.join().indexOf("@") !== -1) {
-      uid = Object.keys(mentions)[0];
+
+  onStart: async function ({ message, event, api }) {
+    let contactID;
+
+    if (Object.keys(event.mentions).length > 0) {
+      contactID = Object.keys(event.mentions)[0];
+    } else if (event.messageReply) {
+      contactID = event.messageReply.senderID;
     } else {
-      uid = senderID;
+      return message.reply("Please reply to a message or mention someone to share their Facebook link.");
     }
-    let data = await api.getUserInfo(uid);
-    let { profileUrl } = data[uid];
-    return api.sendMessage(`${profileUrl}`, threadID, messageID);
+
+    const profileLink = `https://www.facebook.com/${contactID}`;
+
+    api.sendMessage(`Here is the Facebook profile link: ${profileLink}`, event.threadID, (err) => {
+      if (err) {
+        return message.reply(`Error: ${err.message}`);
+      }
+    });
   }
 };
