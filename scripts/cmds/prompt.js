@@ -1,50 +1,45 @@
-const { existsSync, mkdirSync } = require("fs");
 const axios = require("axios");
-const tinyurl = require('tinyurl');
 
 module.exports = {
   config: {
     name: "prompt",
-    aliases: [],
     version: "1.0",
-    author: "Vex_Kshitiz",
+    author: "@RI F AT",
     countDown: 5,
     role: 0,
-    shortDescription: "Generate prompt for an image",
-    longDescription: "generate prompt for an image",
-    category: "image",
+    shortDescription: {
+      en: "Generate AI image prompt from image"
+    },
+    longDescription: {
+      en: "Generate a detailed AI prompt from an image using your deployed API"
+    },
+    category: "ai",
     guide: {
-      en: "{p}prompt (reply to image)"
+      en: "{pn}\nReply to an image with this command."
     }
   },
 
-  onStart: async function ({ message, event, api }) {
-    api.setMessageReaction("🕐", event.messageID, (err) => {}, true);
-    const { type, messageReply } = event;
-    const { attachments, threadID } = messageReply || {};
+  onStart: async function ({ message, event }) {
+    if (
+      !event.messageReply ||
+      !event.messageReply.attachments?.[0]?.type?.startsWith("photo")
+    ) {
+      return message.reply("Please reply to an image to generate a prompt.");
+    }
 
-    if (type === "message_reply" && attachments) {
-      const [attachment] = attachments;
-      const { url, type: attachmentType } = attachment || {};
+    const imgURL = event.messageReply.attachments[0].url;
+    const apiUrl = `https://siiii-api.vercel.app/api/prompt?img=${encodeURIComponent(imgURL)}`;
 
-      if (!attachment || attachmentType !== "photo") {
-        return message.reply("Reply to an image.");
+    try {
+      const res = await axios.get(apiUrl);
+      if (res.data && res.data.reply) {
+        return message.reply(res.data.reply); 
+      } else {
+        return message.reply("Failed to get a valid prompt from API.");
       }
-
-      try {
-        const tinyUrl = await tinyurl.shorten(url);
-        const apiUrl = `https://prompt-gen-eight.vercel.app/kshitiz?url=${encodeURIComponent(tinyUrl)}`;
-        const response = await axios.get(apiUrl);
-
-        const { prompt } = response.data;
-
-        message.reply(prompt, threadID);
-      } catch (error) {
-        console.error(error);
-        message.reply("❌ An error occurred while generating the prompt.");
-      }
-    } else {
-      message.reply("Please reply to an image.");
+    } catch (err) {
+      console.error("Prompt fetch error:", err.message);
+      return message.reply("Failed to generate prompt. Please try again later.");
     }
   }
 };

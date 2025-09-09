@@ -1,49 +1,70 @@
-const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+const axios = require('axios');
+const fs = require('fs-extra');
 
 module.exports = {
   config: {
     name: "say",
-    aliases: [],
-    version: "1.0",
-    author: "Mahi",
-    countDown: 3,
-    role: 0
+    version: "2.0",
+    author: "SiAM",
+    countDown: 5,
+    role: 0,
+    category: "Fun",
+    ShortDescription: "text to voice",
+    LongDescription: "bot will make your text into voice.",
+    guide: {
+      en: "{pn} your text"
+    }
   },
 
-  onStart: async function ({ api, event, args }) {
-    const text = args.join(" ");
-    if (!text) return api.sendMessage("⚠️ Please provide some text.\nExample: !say Hello there", event.threadID, event.messageID);
+  onStart: async function ({ api, args, message, event }) {
+    const { getPrefix } = global.utils;
+    const p = getPrefix(event.threadID);
 
-    const apiUrl = `https://text-to-speach-kappa.vercel.app/say?text=${encodeURIComponent(text)}`;
-    const filePath = path.join(__dirname, "temp_say.mp3");
+    let text;
+    
+    if (event.type === "message_reply" && event.messageReply.attachments && event.messageReply.attachments.length > 0 && ["photo", "sticker"].includes(event.messageReply.attachments[0].type)) {
+      const imageUrl = event.messageReply.attachments[0].url;     
+      try {
+        const ocrResponse = await axios.get(`https://sex.sex/api/image/imgtotext?imageUrl=${encodeURIComponent(imageUrl)}`);
+        text = ocrResponse.data.result;
+      } catch (ocrError) {
+        console.error(ocrError);
+        message.reply("Error extracting text from image.");
+        return;
+      }
+    } else if (event.type === "message_reply") {
+      text = event.messageReply.body;
+    } else {
+      text = args && args.length > 0 ? args.join(" ") : '';
+    }
+    
+    if (!text) {
+      return message.reply(`Provide some text \n\nExample:\n${p}say hi there`);
+    }
+
+    const path = "./tts.mp3";
+    const apiURL = `https://tts-siam-apiproject.vercel.app/speech?text=${encodeURIComponent(text)}`;
 
     try {
       const response = await axios({
-        url: apiUrl,
-        method: "GET",
+        method: "get",
+        url: apiURL,
         responseType: "stream"
       });
 
-      const writer = fs.createWriteStream(filePath);
+      const writer = fs.createWriteStream(path);
       response.data.pipe(writer);
-
       writer.on("finish", () => {
-        const replyTarget = event.messageReply?.messageID || event.messageID;
-
-        api.sendMessage({
-          attachment: fs.createReadStream(filePath)
-        }, event.threadID, () => fs.unlinkSync(filePath), replyTarget);
-      });
-
-      writer.on("error", err => {
-        console.error("File write error:", err);
-        api.sendMessage("❌ Failed to write audio file.", event.threadID, event.messageID);
+        message.reply({
+           
+          attachment: fs.createReadStream(path)
+        }, () => {
+          fs.remove(path);
+        });
       });
     } catch (err) {
-      console.error("TTS API error:", err.message);
-      api.sendMessage("❌ Failed to generate voice.", event.threadID, event.messageID);
+      console.error(err);
+      message.reply("Error while processing text to voice.");
     }
   }
 };

@@ -44,4 +44,4 @@ module.exports = {
       return message.reply("An error occurred while fetching meme.");
     }
   }
-};
+}

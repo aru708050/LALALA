@@ -1,107 +1,75 @@
-const fs = require("fs-extra");
-const request = require("request");
-const os = require("os");
+const fs = require('fs');
+const moment = require('moment-timezone');
 
 module.exports = {
-  config: {
-    name: "owner",
-    version: "1.0",
-    author: "✨ Eren Yeh ✨",
-    shortDescription: "Show full bot owner info with videos & Urdu bio",
-    longDescription: "Detailed owner information with bot stats, uptime, Urdu bio and cool videos.",
-    category: "ℹ️ Info",
-    guide: {
-      en: ".owner"
-    },
-    usePrefix: true
-  },
+  config: {
+    name: "owner",
+    aliases: ["owner", "own"],
+    version: "2.0",
+    author: "Ariyan",
+    countDown: 5,
+    role: 0,
+    shortDescription: {
+      vi: "",
+      en: "Sends information about the bot and admin."
+    },
+    longDescription: {
+      vi: "",
+      en: "Sends information about the bot and admin."
+    },
+    category: "Information",
+    guide: {
+      en: "{pn}"
+    },
+    envConfig: {}
+  },
 
-  onStart: async function ({ api, event }) {
-    const ownerInfo = {
-      name: "Xos Eren",
-      whatsapp: "+8801839268235",
-      botName: "💦 SpiDeY 🕸️",
-      botType: "GoatBot",
-      commandCooldown: "5s",
-      ownerID: "61574046213712",
-      botVersion: "1.0",
-      bio: "اُسے نئے طریقوں سے بنانے کی صلاحیت ہے، ایک اچھا اور فعال معاون۔"
-    };
+  onStart: async function ({ message }) {
+    await this.sendInfo(message);
+  },
 
-    const botUptime = process.uptime();
-    const botHours = Math.floor(botUptime / 3600);
-    const botMinutes = Math.floor((botUptime % 3600) / 60);
-    const botSeconds = Math.floor(botUptime % 60);
-    const formattedBotUptime = `${botHours}h ${botMinutes}m ${botSeconds}s`;
+  onChat: async function ({ event, message }) {
+    if (event.body && event.body.toLowerCase() === "info") {
+      await this.sendInfo(message);
+    }
+  },
 
-    const sysUptime = os.uptime();
-    const sysDays = Math.floor(sysUptime / (3600 * 24));
-    const sysHours = Math.floor((sysUptime % (3600 * 24)) / 3600);
-    const sysMinutes = Math.floor((sysUptime % 3600) / 60);
-    const sysSeconds = Math.floor(sysUptime % 60);
-    const formattedSysUptime = `${sysDays}d ${sysHours}h ${sysMinutes}m ${sysSeconds}s`;
+  sendInfo: async function (message) {
+    try {
+      const botName = "Ariyan Bot";
+      const botPrefix = ")";
+      const authorName = "𝗔RIYAN";
+      const authorFB = "NOPE 🐸";
+      const authorInsta = "Shor Mgii 😒";
+      const status = "Married";
 
-    const body = `
-╭──────────╮
-        ʙᴏᴛ ᴏᴡɴᴇʀ ɪɴғᴏ   😾💋
-╰──────────╯      ──────────────────────────╯
+      const now = moment().tz('Asia/Dhaka');
+      const time = now.format('h:mm:ss A');
 
-👤 ᴏᴡɴᴇʀ ɴᴀᴍᴇ: ${ownerInfo.name}
-📱 ᴏᴡɴᴇʀ ᴡʜᴀᴛsᴀᴘᴘ: ${ownerInfo.whatsapp}
+      const uptime = process.uptime();
+      const seconds = Math.floor(uptime % 60);
+      const minutes = Math.floor((uptime / 60) % 60);
+      const hours = Math.floor((uptime / (60 * 60)) % 24);
+      const days = Math.floor(uptime / (60 * 60 * 24));
+      const uptimeString = `${days}d ${hours}h ${minutes}m ${seconds}s`;
 
-📦 ʙᴏᴛ ᴛʏᴘᴇ: ${ownerInfo.botType}
+      await message.reply(
+`╭────────────◊
+├‣ 𝐁𝐨𝐭 & 𝐎𝐰𝐧𝐞𝐫 𝐈𝐧𝐟𝐨𝐫𝐦𝐚𝐭𝐢𝐨𝐧 
+├‣ 𝐍𝐚𝐦𝐞: ${authorName}
+├‣ 𝐁𝐨𝐭 𝐍𝐚𝐦𝐞:  ${botName}
+├‣ 𝐏𝐫𝐞𝐟𝐢𝐱:  ${botPrefix}
+├‣ 𝐅𝐛: ${authorFB}
+├‣ 𝐈𝐧𝐬𝐭𝐚𝐠𝐫𝐚𝐦:  ${authorInsta}
+├‣ 𝐑𝐞𝐥𝐚𝐭𝐢𝐨𝐧𝐬𝐡𝐢𝐩: ${status}   
+├‣ 𝐓𝐢𝐦𝐞:  ${time}
+├‣ 𝐔𝐩𝐭𝐢𝐦𝐞: ${uptimeString}
+╰────────────◊`
+      );
 
-⏳ ᴄᴏᴍᴍᴀɴᴅ ᴄᴏᴏʟᴅᴏᴡɴ: ${ownerInfo.commandCooldown}
-
-🆔 ᴏᴡɴᴇʀ ɪᴅ: ${ownerInfo.ownerID}
-
-🤖 ʙᴏᴛ ɴᴀᴍᴇ: ${ownerInfo.botName}
-
-💬 ᴇᴘʜᴏ: Responsive bot for automation and management.
-
-
-🌟 ʙɪᴏ: ${ownerInfo.bio}
-
-────────────────────────────────────
-
-
-`;
-
-    const imgurVideos = [
-      "https://i.imgur.com/0bCwiQa.mp4"
-    ];
-
-    const downloadVideo = (url, path) => {
-      return new Promise((resolve, reject) => {
-        request(url)
-          .pipe(fs.createWriteStream(path))
-          .on("close", resolve)
-          .on("error", reject);
-      });
-    };
-
-    const videoPaths = [];
-    for (let i = 0; i < imgurVideos.length; i++) {
-      const path = `${__dirname}/cache/video${i}.mp4`;
-      await downloadVideo(imgurVideos[i], path);
-      videoPaths.push(path);
-    }
-
-    api.sendMessage(
-      {
-        body,
-        attachment: videoPaths.map(p => fs.createReadStream(p))
-      },
-      event.threadID,
-      () => videoPaths.forEach(p => fs.unlinkSync(p)),
-      event.messageID
-    );
-  },
-
-  onChat: async function ({ event, message }) {
-    const body = event.body?.trim().toLowerCase();
-    if (body === "owner") {
-      return this.onStart({ event, message });
-    }
-  }
+    } catch (err) {
+      console.error("❌ Error in owner command:", err);
+      return message.reply("❌ Error occurred while sending owner info.");
+    }
+  }
 };

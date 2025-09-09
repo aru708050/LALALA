@@ -1,83 +1,67 @@
-const axios = require('axios');
-const fs = require('fs');
-const path = require('path');
+const axios = require("axios");
+const path = require("path");
 
 module.exports = {
   config: {
-    name: 'song',
-    author: 'Nyx',
-    usePrefix: false,
-    category: 'Youtube Song Downloader'
+    name: "song",
+    version: "2.2",
+    author: "@RI F AT",
+    countDown: 5,
+    role: 0,
+    shortDescription: "Search & send song audio",
+    longDescription: "Send MP3 by searching or identifying from reply",
+    category: "media",
+    guide: {
+      en: "{pn} <song name> or reply to audio/video"
+    }
   },
-  onStart: async ({ event, api, args, message }) => {
+
+  onStart: async function ({ api, event, args }) {
+    const queryInput = args.join(" ");
+    const { messageReply } = event;
+
     try {
-      const query = args.join(' ');
-      if (!query) return message.reply('Please provide a search query!');
-      
-      const searchResponse = await axios.get(`https://mostakim.onrender.com/mostakim/ytSearch?search=${encodeURIComponent(query)}`);
-      api.setMessageReaction("⏳", event.messageID, () => {}, true);
+      let searchQuery = queryInput;
 
-      const parseDuration = (timestamp) => {
-        const parts = timestamp.split(':').map(part => parseInt(part));
-        let seconds = 0;
-
-        if (parts.length === 3) {
-          seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
-        } else if (parts.length === 2) {
-          seconds = parts[0] * 60 + parts[1];
-        }
-
-        return seconds;
-      };
-
-      const filteredVideos = searchResponse.data.filter(video => {
-        try {
-          const totalSeconds = parseDuration(video.timestamp);
-          return totalSeconds < 600;
-        } catch {
-          return false;
-        }
-      });
-
-      if (filteredVideos.length === 0) {
-        return message.reply('No short videos found (under 10 minutes)!');
+      // Song recognition from reply
+      if (!searchQuery && messageReply?.attachments?.[0]?.url) {
+        const fileUrl = messageReply.attachments[0].url;
+        const recognizeRes = await axios.get(
+          `https://music-recognition.onrender.com/identify?audioUrl=${encodeURIComponent(fileUrl)}`
+        );
+        const { title, artist } = recognizeRes?.data || {};
+        if (!title || !artist) return api.sendMessage("Couldn't recognize the song.", event.threadID, event.messageID);
+        searchQuery = `${title} ${artist}`;
       }
 
-      const selectedVideo = filteredVideos[0];
-      const tempFilePath = path.join(__dirname, 'temp_audio.m4a');
-      const apiResponse = await axios.get(`https://mostakim.onrender.com/m/sing?url=${selectedVideo.url}`);
-      
-      if (!apiResponse.data.url) {
-        throw new Error('No audio URL found in response');
+      if (!searchQuery) return api.sendMessage("Enter a song name or reply to audio/video.", event.threadID, event.messageID);
+
+      const res = await axios.get(`https://api.agatz.xyz/api/ytplay?message=${encodeURIComponent(searchQuery)}`);
+      const { title } = res?.data?.data?.audio || {};
+      const audioUrl = res?.data?.data?.audio?.url;
+
+      if (!audioUrl || !audioUrl.startsWith("http")) {
+        return api.sendMessage("MP3 not found.", event.threadID, event.messageID);
       }
 
-      const writer = fs.createWriteStream(tempFilePath);
-      const audioResponse = await axios({
-        url: apiResponse.data.url,
-        method: 'GET',
-        responseType: 'stream'
+      const audioRes = await axios({
+        url: audioUrl,
+        method: "GET",
+        responseType: "stream"
       });
 
-      audioResponse.data.pipe(writer);
-      
-      await new Promise((resolve, reject) => {
-        writer.on('finish', resolve);
-        writer.on('error', reject);
-      });
+      // Add a proper filename to make Messenger show it cleanly
+      const fileName = title ? `${title}.mp3` : "song.mp3";
+      audioRes.data.path = path.basename(fileName);
 
-      api.setMessageReaction("✅", event.messageID, () => {}, true);
+      api.sendMessage({
+        body: title,
+        attachment: audioRes.data
+      }, event.threadID, event.messageID);
 
-      await message.reply({
-        body: `🎧 Now playing: ${selectedVideo.title}\nDuration: ${selectedVideo.timestamp}`,
-        attachment: fs.createReadStream(tempFilePath)
-      });
-
-      fs.unlink(tempFilePath, (err) => {
-        if (err) message.reply(`Error deleting temp file: ${err.message}`);
-      });
-
-    } catch (error) {
-      message.reply(`Error: ${error.message}`);
+    } catch (err) {
+      console.error("song cmd error:", err.message);
+      api.sendMessage("Error fetching song.", event.threadID, event.messageID);
     }
   }
 };

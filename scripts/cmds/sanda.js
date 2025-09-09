@@ -12,7 +12,7 @@ module.exports = {
     role: 0,
     shortDescription: "Expose someone as a sanda!",
     longDescription: "Puts the tagged/replied user's face on a sanda's body (fun meme)",
-    category: "pro",
+    category: "fun",
     guide: {
       en: "{pn} @mention or reply to sanda someone",
     },

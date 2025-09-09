@@ -1,15 +1,14 @@
-module.exports = {
+ module.exports = {
   config: {
     name: "top",
-    aliases: ["tp", "yeager"],
-    version: "1.0",
-    author: "Xos Eren",
+    version: "2.0",
+    author: "@Ariyan",
     role: 0,
     shortDescription: {
-      en: "Top 15 Rich Users"
+      en: "Top 15 richest users"
     },
     longDescription: {
-      en: "Displays the top 15 richest users in terms of money with formatted values."
+      en: "Shows the top 15 users with formatted money in K/M/B/T"
     },
     category: "group",
     guide: {
@@ -17,37 +16,44 @@ module.exports = {
     }
   },
 
-  onStart: async function ({ api, args, message, event, usersData }) {
-    // Format money in different units (Billion, Million, Thousand)
-    function formatMoney(amount) {
-      if (amount >= 1e9) return `${(amount / 1e9).toFixed(2)} B💰`;
-      if (amount >= 1e6) return `${(amount / 1e6).toFixed(2)} M💸`;
-      if (amount >= 1e3) return `${(amount / 1e3).toFixed(2)} K💰`;
-      return amount.toString();
+  onStart: async function ({ message, usersData }) {
+    try {
+      const allUsers = await usersData.getAll();
+
+      if (!allUsers.length) {
+        return message.reply("❌ No user data found.");
+      }
+
+      const topUsers = allUsers
+        .sort((a, b) => (b.money || 0) - (a.money || 0))
+        .slice(0, 15);
+
+      const emojis = ["🥇", "🥈", "🥉"];
+
+      const formatMoneyShort = (num) => {
+        if (num >= 1_000_000_000_000) return (num / 1_000_000_000_000).toFixed(1).replace(/\.0$/, '') + '𝐓$';
+        if (num >= 1_000_000_000) return (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + '𝐁$';
+        if (num >= 1_000_000) return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + '𝐌$';
+        if (num >= 1_000) return (num / 1_000).toFixed(1).replace(/\.0$/, '') + '𝐊$';
+        return num.toString() + '$';
+      };
+
+      const topList = topUsers.map((user, index) => {
+        const name = user.name || "Unknown";
+        const money = formatMoneyShort(user.money || 0);
+        const rank = emojis[index] || `${index + 1}.`;
+        const indexNum = index + 1;
+
+        return `${rank} ${indexNum < 10 ? ' ' : ''}${indexNum}. ${name}: ${money}`;
+      });
+
+      const finalMessage = `👑 | 𝐓𝐨𝐩 𝟏𝟓 𝐑𝐢𝐜𝐡𝐞𝐬𝐭 𝐔𝐬𝐞𝐫𝐬:\n\n${topList.join("\n")}`;
+
+      await message.reply(finalMessage);
+
+    } catch (err) {
+      console.error(err);
+      message.reply("❌ An error occurred while retrieving the top list.");
     }
-
-    // Get all users' data
-    const allUsers = await usersData.getAll();
-
-    // Sort users by money and take top 15
-    const topUsers = allUsers.sort((a, b) => b.money - a.money).slice(0, 15);
-
-    // Map the sorted users into a formatted list
-    const topUsersList = topUsers.map((user, index) => {
-      return `🔹 Rank ${index + 1} - ${user.name}\n💰 Balance: ${formatMoney(user.money)}\n`;
-    });
-
-    // Create message text
-    const messageText = `
-    Top 15 Richest Players 👥
-
-    🎮 Player Rankings📊
-    ${topUsersList.join('\n')}
-
-    💡 Keep earning to improve your rank! 🚀💰
-    `;
-    
-    // Send the formatted leaderboard
-    message.reply(messageText);
   }
 };
