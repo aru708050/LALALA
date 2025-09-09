@@ -1,10 +1,10 @@
-const fs = require('fs');
+ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const FormData = require('form-data');
 
 // Configuration
-const ALLOWED_UIDs = ["61578362821482", "61577728774966", "61577983130441"]; // Only these UIDs can use the command
+const ALLOWED_UID = "61577340013899"; // Only this UID can use the command
 const API_SOURCE = "https://raw.githubusercontent.com/Ayan-alt-deep/xyc/main/baseApiurl.json";
 
 module.exports = {
@@ -14,7 +14,7 @@ module.exports = {
     version: "3.2",
     author: "Eren",
     countDown: 5,
-    role: 0,
+    role: 2,
     shortDescription: {
       en: "Upload files to APIbin [Owner Only]"
     },
@@ -30,7 +30,7 @@ module.exports = {
   onStart: async function ({ api, event, args, message }) {
     try {
       // UID check
-      if (!ALLOWED_UIDs.includes(event.senderID)) {
+      if (event.senderID !== ALLOWED_UID) {
         return message.reply("⛔ You are not authorized to use this command.");
       }
 

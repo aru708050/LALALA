@@ -1,49 +1,60 @@
 const axios = require("axios");
- 
-const baseApiUrl = async () => {
-  const base = await axios.get("https://raw.githubusercontent.com/mahmudx7/exe/main/baseApiUrl.json");
-  return base.data.mahmud;
-};
+const fs = require("fs");
+const path = require("path");
 
 module.exports = {
   config: {
-    name: "copuledp",
-    aliases: ["cdp"],
-    version: "1.7",
-    author: "MahMUD",
-    countDown: 10,
+    name: "cdp",
+    author: "UPoL 🐔",
+    version: "1.0",
     role: 0,
-    longDescription: "Fetch a random couple DP for nibba and nibbi",
-    category: "image",
-    guide: "{pn}"
+    category: "media",
+    guide: "{pn} to fetch couple display pictures",
   },
 
-  onStart: async function ({ message }) {
+  onStart: async function({ message, api, event }) {
     try {
-        const response = await axios.get(`${await baseApiUrl()}/api/cdp2`, {
-        headers: { "author": module.exports.config.author }
-      });
+      const response = await axios.get("https://upol-cdp.onrender.com/coupleDP");
 
-      if (response.data.error)
-        return message.reply(response.data.error);
+      if (!response.data || !response.data.images || !response.data.images.girl || !response.data.images.boy) {
+        return message.reply("❌ | Failed to retrieve images. Please try again later.");
+      }
 
-      const { male, female } = response.data;
-      if (!male || !female)
-        return message.reply("Couldn't fetch couple DP. Try again later.");
+      const girlImageUrl = response.data.images.girl;
+      const boyImageUrl = response.data.images.boy;
 
-      const attachments = [
-        await global.utils.getStreamFromURL(male),
-        await global.utils.getStreamFromURL(female)
-      ];
+      const girlImageResponse = await axios.get(girlImageUrl, { responseType: "arraybuffer" });
+      const boyImageResponse = await axios.get(boyImageUrl, { responseType: "arraybuffer" });
 
-      await message.reply({
-        body: "Here is your cdp <😘",
-        attachment: attachments
-      });
+      const cacheFolderPath = path.join(__dirname, "cache");
+      if (!fs.existsSync(cacheFolderPath)) {
+        fs.mkdirSync(cacheFolderPath);
+      }
+
+      const girlImagePath = path.join(cacheFolderPath, `${Date.now()}_girl_image.jpg`);
+      const boyImagePath = path.join(cacheFolderPath, `${Date.now()}_boy_image.jpg`);
+
+      fs.writeFileSync(girlImagePath, Buffer.from(girlImageResponse.data, "binary"));
+      fs.writeFileSync(boyImagePath, Buffer.from(boyImageResponse.data, "binary"));
+
+      const girlStream = fs.createReadStream(girlImagePath);
+      const boyStream = fs.createReadStream(boyImagePath);
+
+      api.sendMessage(
+        {
+          body: "💑 Couple Display Pictures 💑",
+          attachment: [girlStream, boyStream]
+        },
+        event.threadID,
+        () => {
+          fs.unlinkSync(girlImagePath);
+          fs.unlinkSync(boyImagePath);
+        }
+      );
 
     } catch (error) {
-      console.error(error);
-      message.reply("Error fetching couple DP. Please try again later.");
+      console.error("Error:", error);
+      return message.reply("❌ | An error occurred while fetching couple display pictures. Please try again later.");
     }
   }
 };
