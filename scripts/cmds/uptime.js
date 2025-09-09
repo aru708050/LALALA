@@ -1,118 +1,104 @@
-const axios = require("axios");
-const fs = require("fs-extra");
-const path = require("path");
+  const os = require("os");
+const { createCanvas, loadImage } = require("canvas");
+const util = require("util");
+const exec = util.promisify(require("child_process").exec);
+const moment = require("moment-timezone");
+const fs = require("fs");
 
 module.exports = {
-  config: {
-    name: "uptime",
-    aliases: ["up", " upt"],
-    version: "1.5",
-    author: "EREN // Re-coded",
-    role: 0,
-    shortDescription: { 
-      en: "Check bot's uptime & ping with style!" 
-    },
-    longDescription: { 
-      en: "Shows how long the bot has been running & its response time in a cute format!" 
-    },
-    category: "owner",
-    guide: { 
-      en: "Use {p}monitor to check bot stats in a stylish way!" 
-    },
-    onChat: true
-  },
+  config: {
+    name: "uptime",
+    aliases: ["upt", "up"],
+    version: "1.6",
+    author: "MaHi + Modified by Ariyan",
+    role: 0,
+    noPrefix: true,
+    shortDescription: {
+      en: "Check bot uptime with image & ping"
+    },
+    longDescription: {
+      en: "Shows how long the bot has been running, including days, plus ping & image"
+    },
+    category: "system",
+    guide: {
+      en: "Just type 'up' to check status"
+    }
+  },
 
-  onStart: async function ({ api, event }) {
-    return this.monitor(api, event);
-  },
+  onStart: () => {
+    console.log("✅ Uptime command loaded.");
+  },
 
-  onChat: async function ({ event, api }) {
-    const content = event.body?.toLowerCase().trim();
-    if (["upt", "up"].includes(content)) {
-      return this.monitor(api, event);
-    }
-  },
+  onChat: async function ({ event, message, usersData, threadsData }) {
+    const body = event.body ? event.body.toLowerCase() : "";
+    if (body === "up") {
+      try {
+        // Step 1: Show "checking ping..." and measure delay
+        const pingMsg = await message.reply("⚡ Checking ping...");
+        const start = Date.now();
+        await new Promise(r => setTimeout(r, 100));
+        const ping = Date.now() - start;
 
-  monitor: async function (api, event) {
-    try {
-      const start = Date.now();
-      const temp = await api.sendMessage("⌛ 𝖥𝖾𝗍𝖼𝗁𝗂𝗇𝗀 𝖻𝗈𝗍 𝗌𝗍𝖺𝗍𝗎𝗌...", event.threadID);
-      setTimeout(() => api.unsendMessage(temp.messageID), 1500);
+        // Step 2: Calculate uptime with days
+        const uptime = process.uptime();
+        const s = Math.floor(uptime % 60);
+        const m = Math.floor((uptime / 60) % 60);
+        const h = Math.floor((uptime / 3600) % 24);
+        const d = Math.floor(uptime / (3600 * 24));
+        const upTimeStr = `${d}d ${h}h ${m}m ${s}s`;
 
-      const end = Date.now();
-      const ping = end - start;
+        // Step 3: Load image background
+        const background = await loadImage("https://i.imgur.com/hes9xq4.jpeg");
+        const canvas = createCanvas(1000, 500);
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(background, 0, 0, 1000, 500);
 
-      const uptime = process.uptime();
-      const days = Math.floor(uptime / 86400);
-      const hours = Math.floor((uptime % 86400) / 3600);
-      const minutes = Math.floor((uptime % 3600) / 60);
-      const seconds = Math.floor(uptime % 60);
+        // Step 4: Add uptime text to image
+        ctx.fillStyle = "#FFFFFF";
+        ctx.font = "bold 50px Arial";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        ctx.shadowBlur = 5;
 
-      let uptimeFormatted = `⏳ ${days}d ${hours}h ${minutes}m ${seconds}s`;
-      if (days === 0) uptimeFormatted = `⏳ ${hours}h ${minutes}m ${seconds}s`;
-      if (hours === 0) uptimeFormatted = `⏳ ${minutes}m ${seconds}s`;
-      if (minutes === 0) uptimeFormatted = `⏳ ${seconds}s`;
+        ctx.fillText("BOT UPTIME", 72, 100);
+        ctx.fillText(`${upTimeStr}`, 72, 200);
 
-      const imageURL = "https://i.imgur.com/TfizXoz.jpeg";
-      const fallbackImage = path.join(__dirname, "fallback.jpg"); // Optional local backup
+        ctx.shadowColor = "transparent";
 
-      const getImageStream = async () => {
-        try {
-          const res = await axios.get(imageURL, {
-            responseType: "stream",
-            headers: { "User-Agent": "Mozilla/5.0" }
-          });
-          return res.data;
-        } catch (err) {
-          if (err.response?.status === 429) {
-            console.warn("429 detected, using fallback image.");
-          } else {
-            console.warn("Image fetch error:", err.message);
-          }
-          if (fs.existsSync(fallbackImage)) {
-            return fs.createReadStream(fallbackImage);
-          } else {
-            return null; // no image
-          }
-        }
-      };
+        const imagePath = `${__dirname}/uptime_image.png`;
+        const buffer = canvas.toBuffer();
+        fs.writeFileSync(imagePath, buffer);
 
-      const finalMessage = `
-╭───────────────────────╮
-BOT STATUS
+        // Step 5: Delete the "checking ping..." message
+        await message.unsend(pingMsg.messageID);
+
+        // Step 6: Send final stylized message
+        await message.reply({
+          body: 
+`╭───────────────────────╮
+         BOT STATUS
 ──────╯
 ╰─────────────────
 
 ┏━━━━━━━━━━━━━━━┓
-┃ 💤 𝖴𝗉𝗍: ${uptimeFormatted}
+┃ 💤 𝖴𝗉𝗍𝗂𝗆e: ⏳ ${upTimeStr}
 ┃ ⚡ 𝖯𝗂𝗇𝗀: ${ping}ms
-┃ 👑 𝖮𝗐𝗇𝖾𝗋: Ma Hi
+┃ 👑 𝖮𝗐𝗇𝖾𝗋: Ariyan
 ┗━━━━━━━━━━━━━━━┛
 
-𝗕𝗼𝘁 𝗶𝘀 𝗮𝗹𝗶𝘃𝗲 𝗮𝗻𝗱 𝗿𝗲𝗮𝗱𝘆 𝘁𝗼 𝗿𝘂𝗹𝗲!
-`;
+𝗕𝗼𝘁 𝗶𝘀 𝗮𝗹𝗶𝘃𝗲 𝗮𝗻𝗱 𝗿𝗲𝗮𝗱𝘆 𝘁𝗼 𝗿𝘂𝗹𝗲!`,
+          attachment: fs.createReadStream(imagePath)
+        });
 
-      const attachment = await getImageStream();
+        fs.unlinkSync(imagePath);
 
-      const message = await api.sendMessage({
-        body: finalMessage,
-        attachment: attachment || undefined
-      }, event.threadID, event.messageID);
-
-      // React to the user's original message
-      if (message?.messageID) {
-        api.setMessageReaction("⏳", event.messageID, event.threadID, true);
-        api.setMessageReaction("✅", event.messageID, event.threadID, true);
-      }
-
-    } catch (error) {
-      console.error("Monitor error:", error);
-
-      // React with ⏳ and ❎ to user's message in case of error
-      api.setMessageReaction("⏳", event.messageID, event.threadID, true);
-      api.setMessageReaction("❎", event.messageID, event.threadID, true);
-
-      return api.sendMessage(`❌ 𝗘𝗿𝗿𝗼𝗿: ${error.response?.status === 429 ? '𝖳𝗈𝗈 𝗆𝖺𝗇𝗒 𝗋𝖾𝗊𝗎𝖾𝗌𝗍𝗌! 𝖳𝗋𝗒 𝖺𝗀𝖺𝗂𝗇 𝗌𝗁𝗈𝗋𝗧𝗅𝗒.' : error.message}`, event.threadID, event.messageID);
-    }
-  }
+      } catch (err) {
+        console.error(err);
+        await message.reply("❌ An error occurred while generating uptime.");
+      }
+    }
+  }
 };
